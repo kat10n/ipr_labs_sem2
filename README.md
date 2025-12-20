@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)
 
-## 📋 Описание проекта
+## Описание проекта
 
 Демонстрационное приложение для лабораторной работы по CI/CD. Проект включает в себя:
 - Python приложение с модулями для математических операций и обработки данных
@@ -13,7 +13,7 @@
 - Контейнеризация с использованием Docker
 - Публикация образов в GitLab Container Registry
 
-## 🚀 Возможности
+## Возможности
 
 ### Основной функционал
 - **Calculator**: Класс для выполнения математических операций (сложение, вычитание, умножение, деление, степень, корень)
@@ -26,7 +26,7 @@
 3. **Publish Stage**: Публикация образа в GitLab Container Registry
 4. **Deploy Stage**: Деплой на staging/production окружения
 
-## 📁 Структура проекта
+## Структура проекта
 
 ```
 my-application/
@@ -48,7 +48,7 @@ my-application/
     └── api.md                # API документация
 ```
 
-## 🛠️ Установка и запуск
+## Установка и запуск
 
 ### Локальная разработка
 
@@ -106,7 +106,7 @@ docker run --rm my-app:latest
 docker run --rm my-app:latest python -m src.main
 ```
 
-## 🔄 CI/CD Pipeline
+## CI/CD Pipeline
 
 ### Стадии пайплайна
 
@@ -137,7 +137,7 @@ Pipeline использует следующие переменные:
 - `CI_REGISTRY_PASSWORD`: Пароль для авторизации
 - `PYTHON_VERSION`: Версия Python (по умолчанию 3.11)
 
-## 📊 Покрытие кода
+## Покрытие кода
 
 Проект имеет высокое покрытие unit-тестами:
 - **src/main.py**: >90% coverage
@@ -146,7 +146,7 @@ Pipeline использует следующие переменные:
 
 Отчеты о покрытии генерируются автоматически в каждом pipeline run.
 
-## 🐳 Docker
+## Docker
 
 ### Multi-stage Build
 
@@ -160,33 +160,12 @@ Dockerfile использует multi-stage build для оптимизации:
 - Health check для контроля работоспособности
 - Оптимизированный размер (<200 MB)
 
-## 🔒 Безопасность
+## Безопасность
 
 - Использование непривилегированного пользователя в Docker
 - Регулярное обновление зависимостей
 - Проверка безопасности в pipeline (опционально)
 - Использование секретов GitLab CI/CD для аутентификации
-
-## 📝 Лицензия
-
-Этот проект распространяется под лицензией MIT. См. файл [LICENSE](LICENSE) для подробностей.
-
-## 👥 Авторы
-
-- **Student** - Разработчик - [student@example.com](mailto:student@example.com)
-
-## 🤝 Вклад в проект
-
-1. Fork проекта
-2. Создайте feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit изменений (`git commit -m 'Add some AmazingFeature'`)
-4. Push в branch (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
-
-## 📞 Контакты
-
-- Email: student@example.com
-- GitLab: https://gitlab.com/username/project
 
 ## 📚 Дополнительная информация
 
@@ -210,18 +189,3 @@ black src/ tests/
 # Сортировка импортов
 isort src/ tests/
 ```
-
-### Troubleshooting
-
-**Проблема**: Тесты не проходят локально  
-**Решение**: Убедитесь, что установлены все зависимости из requirements.txt
-
-**Проблема**: Docker образ не собирается  
-**Решение**: Проверьте версию Docker и наличие прав на запуск
-
-**Проблема**: Pipeline падает на стадии publish  
-**Решение**: Проверьте настройки CI/CD переменных в GitLab
-
----
-
-⭐ Не забудьте поставить звезду, если проект был полезен!
