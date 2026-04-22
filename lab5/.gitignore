@@ -29,7 +29,7 @@ env.bak/
 venv.bak/
 
 # PyCharm
-.idea/
+../.idea/
 *.iml
 .idea_modules/
 

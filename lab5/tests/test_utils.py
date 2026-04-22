@@ -3,7 +3,7 @@ Unit-тесты для модуля utils.py
 """
 import unittest
 import pytest
-from src.utils import StringProcessor, ListProcessor
+from lab5.src.utils import StringProcessor, ListProcessor
 
 
 class TestStringProcessor(unittest.TestCase):

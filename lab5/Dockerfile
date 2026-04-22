@@ -19,14 +19,19 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Копирование исходного кода
-COPY src/ ./src/
-COPY tests/ ./tests/
+COPY src ./src/
+COPY tests ./tests/
 
 # Запуск тестов на этапе сборки
 RUN pytest tests/ --cov=src --cov-report=term-missing --cov-report=html
 
 # Этап 2: Продуктовый образ
 FROM python:3.11-slim
+
+# Установка curl для health check
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Метаданные образа
 LABEL maintainer="student@example.com"
@@ -46,7 +51,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     rm -rf /root/.cache
 
 # Копирование приложения
-COPY --chown=appuser:appuser src/ ./src/
+COPY --chown=appuser:appuser src ./src/
 
 # Переключение на непривилегированного пользователя
 USER appuser
@@ -57,7 +62,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "from src.main import Calculator; c=Calculator(); assert c.add(1,1)==2" || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Экспорт порта
+EXPOSE 8000
 
 # Запуск приложения
 CMD ["python", "-m", "src.main"]

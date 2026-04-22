@@ -3,7 +3,7 @@ Unit-тесты для модуля main.py
 """
 import unittest
 import pytest
-from src.main import Calculator
+from lab5.src import Calculator
 
 
 class TestCalculator(unittest.TestCase):
