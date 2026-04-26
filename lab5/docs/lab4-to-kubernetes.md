@@ -21,13 +21,22 @@ docker pull kat10n/calculator:latest
 
 ## Шаг 2: Настройка Kubernetes манифестов
 
-Kubernetes манифесты уже созданы в директории `k8s/`. Вам нужно заменить плейсхолдеры на реальные значения.
+Kubernetes манифесты уже созданы в директории `k8s/`. Дополнительно добавлены:
+- `k8s/namespace.yaml` — namespace `lab5`
+- `k8s/configmap.yaml` — конфигурация приложения
+- `k8s/secret.yaml` — чувствительные данные
+- `k8s/ingress.yaml` — маршрут через Nginx Ingress
+- `k8s/hpa.yaml` — Horizontal Pod Autoscaler
 
 ### Обновление deployment.yaml
 
-В файле `k8s/deployment.yaml` образ уже настроен правильно:
+В файле `k8s/deployment.yaml` приложение получает переменные окружения из ConfigMap и Secret:
 ```yaml
-image: kat10n/calculator:latest
+envFrom:
+- configMapRef:
+    name: calculator-config
+- secretRef:
+    name: calculator-secret
 ```
 
 ## Шаг 3: Развертывание в Kubernetes
@@ -36,20 +45,32 @@ image: kat10n/calculator:latest
 # Переход в директорию с манифестами
 cd k8s
 
-# Применение deployment
-kubectl apply -f deployment.yaml
+# Применение namespace
+kubectl apply -f namespace.yaml
 
-# Применение service
+# Применение ConfigMap и Secret
+kubectl apply -f configmap.yaml
+kubectl apply -f secret.yaml
+
+# Применение deployment и service
+kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
 
-# Проверка статуса подов
-kubectl get pods
+# Применение Ingress и HPA
+kubectl apply -f ingress.yaml
+kubectl apply -f hpa.yaml
 
-# Проверка сервиса
-kubectl get services
+# Проверка статуса подов
+kubectl get pods -n lab5
+
+# Проверка сервисов
+kubectl get svc -n lab5
+
+# Проверка Ingress
+kubectl get ingress -n lab5
 
 # Просмотр логов
-kubectl logs -l app=calculator
+kubectl logs -n lab5 -l app=calculator
 ```
 
 ## Шаг 4: Доступ к приложению

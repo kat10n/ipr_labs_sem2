@@ -1,0 +1,23 @@
+# ServiceMonitor для calculator-app backend.
+# Применять в том же namespace, где развёрнут Service calculator-service (calculator-demo).
+#
+#   kubectl apply -f k8s/servicemonitor-calculator.yaml -n calculator-demo
+#
+# Убедитесь, что у Service есть порт с именем "http" (см. calculator-app/k8s/kustomization/base/service.yaml).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: calculator-backend
+  labels:
+    app: calculator
+    app.kubernetes.io/component: backend
+spec:
+  selector:
+    matchLabels:
+      app: calculator
+      app.kubernetes.io/component: backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

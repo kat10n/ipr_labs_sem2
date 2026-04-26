@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: calculator-app
+  namespace: lab5
   labels:
     app: calculator
 spec:
@@ -19,9 +20,11 @@ spec:
         image: kat10n/calculator:latest
         ports:
         - containerPort: 8000
-        env:
-        - name: PORT
-          value: "8000"
+        envFrom:
+        - configMapRef:
+            name: calculator-config
+        - secretRef:
+            name: calculator-secret
         resources:
           requests:
             memory: "64Mi"

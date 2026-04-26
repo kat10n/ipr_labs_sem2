@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus scrape самого себя — цель всегда UP
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+
+  # Calculator backend на хосте (порт 8000, endpoint /metrics).
+  # Если приложение не запущено — target будет DOWN, это нормально для проверки стека.
+  - job_name: calculator-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8000", "127.0.0.1:8000"]

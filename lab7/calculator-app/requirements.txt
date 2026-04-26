@@ -1,0 +1,12 @@
+flask==3.0.3
+pytest==8.3.3
+pytest-cov==5.0.0
+
+# Метрики — Prometheus
+prometheus-client==0.21.0
+
+# Трейсинг — OpenTelemetry
+opentelemetry-api==1.27.0
+opentelemetry-sdk==1.27.0
+opentelemetry-instrumentation-flask==0.48b0
+opentelemetry-exporter-otlp-proto-http==1.27.0
