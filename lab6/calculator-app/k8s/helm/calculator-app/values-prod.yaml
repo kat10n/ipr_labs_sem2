@@ -1,0 +1,26 @@
+# Prod: 2 реплики, больше ресурсов, FQDN БД (меж-namespace контракт).
+# Секреты передавайте через CI:
+#   helm upgrade --install ... -f values-prod.yaml \
+#     --set secret.apiKey="$API_KEY" \
+#     --set secret.databaseUrl="$DATABASE_URL"
+
+replicaCount: 2
+
+config:
+  appEnv: "production"
+  logLevel: "warn"
+
+secret:
+  apiKey: "REPLACE_WITH_SECRET_FROM_CI"
+  databaseUrl: "postgres://postgres:REPLACE_WITH_SECRET_FROM_CI@postgres-0.postgres.telegram-demo.svc.cluster.local:5432/support_bot?sslmode=disable"
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "500m"
+
+podLabels:
+  environment: prod

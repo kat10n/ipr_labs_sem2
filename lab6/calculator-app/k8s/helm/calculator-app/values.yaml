@@ -1,0 +1,36 @@
+# Базовые значения. Для окружений используйте values-dev.yaml / values-prod.yaml.
+
+replicaCount: 1
+
+image:
+  repository: kat10n/calculator
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+config:
+  appEnv: "production"
+  logLevel: "info"
+  port: "8000"
+  serviceName: "calculator-service"
+
+secret:
+  # API_KEY — не храните реальные значения здесь
+  apiKey: "changeme"
+  # DATABASE_URL согласован с контрактом telegram-support-infra
+  databaseUrl: "postgres://postgres:changeme@postgres-0.postgres:5432/support_bot?sslmode=disable"
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "100m"
+  limits:
+    memory: "128Mi"
+    cpu: "200m"
+
+podLabels: {}
+podAnnotations: {}

@@ -1,0 +1,22 @@
+# Dev: одна реплика, слабые ресурсы, короткий хост БД (тот же namespace).
+
+replicaCount: 1
+
+config:
+  appEnv: "development"
+  logLevel: "debug"
+
+secret:
+  apiKey: "top-secret-key"
+  databaseUrl: "postgres://postgres:postgres@postgres-0.postgres:5432/support_bot?sslmode=disable"
+
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "128Mi"
+    cpu: "200m"
+
+podLabels:
+  environment: dev

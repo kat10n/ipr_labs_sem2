@@ -1,191 +1,365 @@
-# CI/CD Demo Project
+# Лабораторная работа №5: Основы Kubernetes
 
-![Python Version](https://img.shields.io/badge/python-3.11-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)
+## Цель работы
 
-## Описание проекта
+- Освоить основы работы с Kubernetes — системой оркестрации контейнеризированных приложений
+- Контейнеризировать Python-приложение с помощью многоэтапного Dockerfile
+- Описать развёртывание в Kubernetes с помощью YAML-манифестов
+- Освоить ключевые концепции: Pod, Deployment, Service, ConfigMap, Secret, HPA, Ingress
 
-Демонстрационное приложение для лабораторной работы по CI/CD. Проект включает в себя:
-- Python приложение с модулями для математических операций и обработки данных
-- Полное покрытие unit-тестами (>70%)
-- Автоматизированный GitLab CI/CD пайплайн
-- Контейнеризация с использованием Docker
-- Публикация образов в GitLab Container Registry
-
-## Возможности
-
-### Основной функционал
-- **Calculator**: Класс для выполнения математических операций (сложение, вычитание, умножение, деление, степень, корень)
-- **StringProcessor**: Обработка строк (переворот, проверка палиндрома, подсчет слов)
-- **ListProcessor**: Работа со списками (поиск min/max, среднее значение, удаление дубликатов)
-
-### CI/CD Pipeline
-1. **Test Stage**: Автоматические unit-тесты с отчетами о покрытии кода
-2. **Build Stage**: Сборка Docker образа с multi-stage build
-3. **Publish Stage**: Публикация образа в GitLab Container Registry
-4. **Deploy Stage**: Деплой на staging/production окружения
+---
 
 ## Структура проекта
 
 ```
-my-application/
-├── README.md                   # Документация проекта
-├── .gitignore                 # Исключения для Git
-├── .gitlab-ci.yml             # Конфигурация CI/CD пайплайна
-├── Dockerfile                 # Multi-stage Docker образ
-├── requirements.txt           # Python зависимости
-├── LICENSE                    # Лицензия MIT
-├── src/                       # Исходный код приложения
+lab5/
+├── Dockerfile                   # Multi-stage сборка с запуском тестов
+├── requirements.txt             # Python зависимости
+├── src/
 │   ├── __init__.py
-│   ├── main.py               # Основной модуль (Calculator)
-│   └── utils.py              # Утилиты (StringProcessor, ListProcessor)
-├── tests/                     # Unit-тесты
-│   ├── __init__.py
-│   ├── test_main.py          # Тесты для main.py
-│   └── test_utils.py         # Тесты для utils.py
-└── docs/                      # Дополнительная документация
-    └── api.md                # API документация
+│   ├── main.py                  # Flask-приложение (калькулятор)
+│   └── utils.py
+├── tests/
+│   ├── test_main.py
+│   └── test_utils.py
+├── k8s/
+│   ├── namespace.yaml           # Namespace lab5
+│   ├── configmap.yaml           # Конфигурация приложения
+│   ├── secret.yaml              # Секреты (API_KEY)
+│   ├── deployment.yaml          # Deployment с 2 репликами
+│   ├── service.yaml             # Service типа LoadBalancer
+│   ├── hpa.yaml                 # HorizontalPodAutoscaler
+│   └── ingress.yaml             # Ingress (calculator.local)
+├── .gitlab-ci.yml               # CI/CD пайплайн GitLab
+└── .github/workflows/ci.yaml   # CI/CD пайплайн GitHub Actions
 ```
 
-## Установка и запуск
+---
 
-### Локальная разработка
+## Приложение
 
-1. **Клонирование репозитория**
+Flask-приложение реализует REST API калькулятора со следующими эндпоинтами:
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/health` | Health check для Kubernetes probes |
+| POST | `/api/v1/calculate` | Арифметические операции: add, subtract, multiply, divide, power |
+| POST | `/api/v1/sqrt` | Квадратный корень |
+
+Пример запроса:
 ```bash
-git clone <repository-url>
-cd PythonProject5
+curl -X POST http://localhost:8000/api/v1/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "add", "a": 10, "b": 5}'
+# {"result": 15}
 ```
 
-2. **Создание виртуального окружения**
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# или
-venv\Scripts\activate     # Windows
+---
+
+## Dockerfile: Multi-stage сборка
+
+Сборка разделена на два этапа:
+
+**Этап 1 (builder):** устанавливает зависимости, копирует исходники, **запускает тесты** (`pytest`). Если тесты не проходят — сборка образа прерывается.
+
+**Этап 2 (runtime):** минимальный образ `python:3.11-slim`, только production-зависимости, непривилегированный пользователь `appuser` (UID 1000), встроенный `HEALTHCHECK`.
+
+```dockerfile
+# Этап 1: сборка и тестирование
+FROM python:3.11-slim as builder
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY src ./src/
+COPY tests ./tests/
+RUN pytest tests/ --cov=src --cov-report=term-missing
+
+# Этап 2: продуктовый образ
+FROM python:3.11-slim
+RUN useradd -m -u 1000 appuser
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=appuser:appuser src ./src/
+USER appuser
+HEALTHCHECK --interval=30s --timeout=3s CMD curl -f http://localhost:8000/health || exit 1
+EXPOSE 8000
+CMD ["python", "-m", "src.main"]
 ```
 
-3. **Установка зависимостей**
+Сборка локально:
 ```bash
-pip install -r requirements.txt
+docker build -t kat10n/calculator:latest .
+docker run -p 8000:8000 kat10n/calculator:latest
 ```
 
-4. **Запуск приложения**
-```bash
-python -m src.main
+---
+
+## Kubernetes манифесты
+
+### Namespace
+
+```yaml
+# k8s/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab5
+  labels:
+    name: lab5
 ```
 
-### Запуск тестов
+Все ресурсы лабы размещены в namespace `lab5` — это изолирует их от системных компонентов и других проектов.
 
-```bash
-# Запуск всех тестов
-pytest tests/
+### ConfigMap
 
-# Запуск с отчетом о покрытии
-pytest tests/ --cov=src --cov-report=html
-
-# Запуск конкретного теста
-pytest tests/test_main.py -v
+```yaml
+# k8s/configmap.yaml
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  PORT: "8000"
+  SERVICE_NAME: "calculator-service"
 ```
 
-### Docker
+ConfigMap хранит несекретную конфигурацию. В Deployment подключается через `envFrom.configMapRef` — все ключи становятся переменными окружения контейнера.
 
-1. **Сборка образа**
-```bash
-docker build -t my-app:latest .
+### Secret
+
+```yaml
+# k8s/secret.yaml
+type: Opaque
+data:
+  API_KEY: dG9wLXNlY3JldC1rZXk=   # base64("top-secret-key")
 ```
 
-2. **Запуск контейнера**
-```bash
-docker run --rm my-app:latest
+Secret хранит чувствительные данные в base64. В Deployment подключается через `envFrom.secretRef`. В продакшене секреты не хранят в Git — используют CI/CD variables, Sealed Secrets или External Secrets Operator.
+
+### Deployment
+
+```yaml
+# k8s/deployment.yaml
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+      - name: calculator
+        image: kat10n/calculator:latest
+        envFrom:
+        - configMapRef:
+            name: calculator-config
+        - secretRef:
+            name: calculator-secret
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ```
 
-3. **Проверка работоспособности**
-```bash
-docker run --rm my-app:latest python -m src.main
+Ключевые решения:
+- **2 реплики** — отказоустойчивость: при падении одного пода трафик идёт на второй
+- **livenessProbe** — Kubernetes перезапустит контейнер, если `/health` перестанет отвечать
+- **readinessProbe** — Kubernetes не направляет трафик на под, пока тот не готов
+- **resources.requests/limits** — гарантирует ресурсы и предотвращает захват ресурсов узла
+
+### Service
+
+```yaml
+# k8s/service.yaml
+spec:
+  type: LoadBalancer
+  selector:
+    app: calculator
+  ports:
+  - port: 80
+    targetPort: 8000
 ```
 
-## CI/CD Pipeline
+`LoadBalancer` — на Docker Desktop эмулируется как `localhost:80`. Трафик на порт 80 перенаправляется на порт 8000 контейнера. Service находит поды через label `app: calculator`.
 
-### Стадии пайплайна
+### HorizontalPodAutoscaler
 
-#### 1. Test (Тестирование)
-- Запуск unit-тестов с pytest
-- Генерация отчета о покрытии кода
-- Проверка качества кода (flake8, pylint)
+```yaml
+# k8s/hpa.yaml
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: calculator-app
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+```
 
-#### 2. Build (Сборка)
-- Сборка Docker образа с multi-stage build
-- Оптимизация с использованием кэша
-- Проверка безопасности образа
+HPA автоматически масштабирует Deployment от 2 до 5 реплик в зависимости от CPU. Если среднее использование CPU превышает 50% — добавляет поды. Требует установленного `metrics-server`.
 
-#### 3. Publish (Публикация)
-- Публикация образа в GitLab Container Registry
-- Тегирование: latest, commit SHA, branch name
-- Автоматическое версионирование для релизов
+### Ingress
 
-#### 4. Deploy (Деплой)
-- Деплой на staging окружение (ручной запуск)
-- Деплой на production (только для тегов)
+```yaml
+# k8s/ingress.yaml
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: calculator.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: calculator-service
+            port:
+              number: 80
+```
 
-### Переменные окружения
+Ingress маршрутизирует HTTP-трафик по имени хоста `calculator.local` на сервис. Требует установленного Nginx Ingress Controller.
 
-Pipeline использует следующие переменные:
-- `CI_REGISTRY_IMAGE`: Адрес GitLab Container Registry
-- `CI_REGISTRY_USER`: Пользователь для авторизации
-- `CI_REGISTRY_PASSWORD`: Пароль для авторизации
-- `PYTHON_VERSION`: Версия Python (по умолчанию 3.11)
+---
 
-## Покрытие кода
+## Запуск (инструкция воспроизведения)
 
-Проект имеет высокое покрытие unit-тестами:
-- **src/main.py**: >90% coverage
-- **src/utils.py**: >90% coverage
-- **Общее покрытие**: >85%
+### Требования
 
-Отчеты о покрытии генерируются автоматически в каждом pipeline run.
+- Docker Desktop с включённым Kubernetes
+- `kubectl` (входит в Docker Desktop)
+- Образ `kat10n/calculator:latest` собран и доступен
 
-## Docker
-
-### Multi-stage Build
-
-Dockerfile использует multi-stage build для оптимизации:
-1. **Builder stage**: Установка зависимостей и запуск тестов
-2. **Production stage**: Минимальный финальный образ
-
-### Особенности образа
-- Базовый образ: `python:3.11-slim`
-- Непривилегированный пользователь для безопасности
-- Health check для контроля работоспособности
-- Оптимизированный размер (<200 MB)
-
-## Безопасность
-
-- Использование непривилегированного пользователя в Docker
-- Регулярное обновление зависимостей
-- Проверка безопасности в pipeline (опционально)
-- Использование секретов GitLab CI/CD для аутентификации
-
-## 📚 Дополнительная информация
-
-### Требования к окружению
-- Python 3.11+
-- Docker 24+
-- GitLab Runner (для CI/CD)
-
-### Полезные команды
+### Шаг 1 — Проверить кластер
 
 ```bash
-# Проверка стиля кода
-flake8 src/ --max-line-length=100
+kubectl cluster-info
+kubectl get nodes
+# Должен быть узел docker-desktop в статусе Ready
+```
 
-# Линтинг кода
-pylint src/ --max-line-length=100
+### Шаг 2 — Применить манифесты
 
-# Форматирование кода
-black src/ tests/
+```bash
+cd lab5
 
-# Сортировка импортов
-isort src/ tests/
+# Namespace первым
+kubectl apply -f k8s/namespace.yaml
+
+# Конфигурация и секреты
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+
+# Приложение
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+
+# Автомасштабирование и Ingress
+kubectl apply -f k8s/hpa.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+Или одной командой:
+```bash
+kubectl apply -f k8s/
+```
+
+### Шаг 3 — Проверить статус
+
+```bash
+# Все ресурсы в namespace
+kubectl get all -n lab5
+
+# Поды должны быть Running
+kubectl get pods -n lab5
+
+# Deployment
+kubectl get deployment -n lab5
+
+# HPA
+kubectl get hpa -n lab5
+```
+
+### Шаг 4 — Проверить приложение
+
+```bash
+# Health check
+curl http://localhost/health
+
+# Запрос к API
+curl -X POST http://localhost/api/v1/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "multiply", "a": 6, "b": 7}'
+# {"result": 42}
+```
+
+### Шаг 5 — Масштабирование вручную
+
+```bash
+kubectl scale deployment calculator-app --replicas=4 -n lab5
+kubectl get pods -n lab5 -w
+```
+
+### Шаг 6 — Обновление образа
+
+```bash
+# Собрать новую версию
+docker build -t kat10n/calculator:v2 .
+
+# Обновить deployment
+kubectl set image deployment/calculator-app calculator=kat10n/calculator:v2 -n lab5
+
+# Следить за rolling update
+kubectl rollout status deployment/calculator-app -n lab5
+
+# История обновлений
+kubectl rollout history deployment/calculator-app -n lab5
+
+# Откат если нужно
+kubectl rollout undo deployment/calculator-app -n lab5
+```
+
+### Шаг 7 — Удаление
+
+```bash
+# Удаляет всё в namespace (включая namespace)
+kubectl delete namespace lab5
+```
+
+---
+
+## Полезные команды kubectl
+
+```bash
+# Просмотр ресурсов
+kubectl get pods -n lab5
+kubectl get pods -n lab5 -o wide          # с IP и узлом
+kubectl describe pod <name> -n lab5       # детальная информация
+
+# Логи
+kubectl logs <pod-name> -n lab5
+kubectl logs <pod-name> -n lab5 -f        # follow (real-time)
+
+# Отладка
+kubectl exec -it <pod-name> -n lab5 -- bash
+kubectl port-forward svc/calculator-service 8080:80 -n lab5
+
+# Конфигурация
+kubectl get configmap calculator-config -n lab5 -o yaml
+kubectl get secret calculator-secret -n lab5 -o yaml
 ```
